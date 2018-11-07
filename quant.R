@@ -93,4 +93,5 @@ for (id in (2 : length(index(skt.close)))) {
 print(paste("buy open count:", buyOpen.count, ", sell close count:", sellClose.count))
 print(paste(index(skt.close)[id], "total asset:", (capital+hold.buy*coredata(skt.close)[id]), 
 			"capital:", capital, "hold.buy:", hold.buy))
-print(paste("ROI:", (capital+hold.buy*coredata(skt.close)[id])/initial.cap, "from", index(skt.close)[1], "to", index(skt.close)[id]))
+print(paste("ROI:", (capital+hold.buy*coredata(skt.close)[id])/initial.cap, 
+            "from", index(skt.close)[1], "to", index(skt.close)[id]))
