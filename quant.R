@@ -7,11 +7,15 @@ library(quantmod)
 initial.cap = 10000
 skt.name = "SZ50"
 
-skt.close <- getSymbols(skt.name, src="csv", col.name="Close", auto.assign=FALSE)
-print(paste(skt.name, "length:", length(index(skt.close))))
+skt <- getSymbols(skt.name, src="csv", col.name="Close", auto.assign=FALSE)
+colnames(skt) <- "close"
+print(paste(skt.name, "length:", length(index(skt))))
 
-skt.macd <- MACD(skt.close, 12,26,9, maType="EMA")   #macd=DIF, signal=DEA.
+skt.macd <- MACD(skt[,"close"], 12,26,9, maType="EMA")   #macd=DIF, signal=DEA.
 print(paste("created macd data, length:", length(index(skt.macd))))
+
+asset <- xts(rep(0, length(index(skt))), index(skt))
+colnames(asset) <- "asset"
 
 cross.fun <- function(vec1, vec2, id){
 	if ( (id>1) && (!is.na(vec1[id-1])) && (!is.na(vec2[id-1])) 
@@ -60,29 +64,31 @@ trade.list <- data.frame()
 
 buyopen.fun <- function(id){
 		buyOpen.count <<- buyOpen.count + 1	
-		hold.buy <<- floor(capital/coredata(skt.close)[id])
-		capital <<- (capital - hold.buy * coredata(skt.close)[id])
+		hold.buy <<- floor(capital/coredata(skt)[id,"close"])
+		capital <<- (capital - hold.buy * coredata(skt)[id,"close"])
 
-		td <- data.frame( date=index(skt.close)[id], op="BO", price=coredata(skt.close)[id], 
-											count=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt.close)[id]), stringsAsFactors = FALSE)
+		td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], 
+											count=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt)[id,"close"]), stringsAsFactors = FALSE)
 		trade.list <<- rbind(trade.list, td)
 }
 
 sellclose.fun <- function(id) {
 	if (hold.buy > 0) {
 		sellClose.count <<- sellClose.count + 1
-		capital <<- (capital + hold.buy * coredata(skt.close)[id])
+		capital <<- (capital + hold.buy * coredata(skt)[id,"close"])
 		
-		td <- data.frame( date=index(skt.close)[id], op="SC", price=coredata(skt.close)[id], 
+		td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], 
 											count=hold.buy, cash=capital, asset=capital, stringsAsFactors = FALSE )
 		trade.list <<- rbind(trade.list, td)	}
 
 		hold.buy <<- 0
 }
 
-print(paste(paste(index(skt.close)[1], "Inital capital:", initial.cap)))
+print(paste(paste(index(skt)[1], "Inital capital:", initial.cap)))
 
-for (id in (2 : length(index(skt.close)))) {
+for (id in (2 : length(index(skt)))) {
+  asset[id, "asset"] <- (capital + hold.buy * coredata(skt)[id,"close"])
+  
 	if ( isBuyOpen.fun(id, "cow.macd") ) {
 		buyopen.fun(id)
 	}
@@ -91,7 +97,8 @@ for (id in (2 : length(index(skt.close)))) {
 	}
 }
 print(paste("buy open count:", buyOpen.count, ", sell close count:", sellClose.count))
-print(paste(index(skt.close)[id], "total asset:", (capital+hold.buy*coredata(skt.close)[id]), 
+print(paste(index(skt)[id], "total asset:", (capital+hold.buy*coredata(skt)[id,"close"]), 
 			"capital:", capital, "hold.buy:", hold.buy))
-print(paste("ROI:", (capital+hold.buy*coredata(skt.close)[id])/initial.cap, 
-            "from", index(skt.close)[1], "to", index(skt.close)[id]))
+print(paste("ROI:", (capital+hold.buy*coredata(skt)[id,"close"])/initial.cap, 
+            "from", index(skt)[1], "to", index(skt)[id]))
+
