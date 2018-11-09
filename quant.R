@@ -3,8 +3,8 @@ library(xts)
 library(TTR)
 library(quantmod)
 
-strategy = "turtle"
-skt.name = "SZ50"
+strategy = "cow.turtle"
+skt.name = "sz50"
 initial.cap = 10000
 
 skt <- getSymbols(skt.name, src="csv", col.name="Close", auto.assign=FALSE)
@@ -65,7 +65,7 @@ isBuyOpen.cow.turtle <- function(id){
   if (id > wd) {
     condition1 <-  (coredata(skt$close)[id-1] <= max(coredata(skt$close)[(id-wd):(id-1)]))
     condition2 <- (coredata(skt$close)[id] > max(coredata(skt$close)[(id-wd):(id-1)]))
-    condition3 <- (coredata(skt.macd$macd)[id] > 0)
+    condition3 <- (!is.na(coredata(skt.macd$macd)[id])) & (coredata(skt.macd$macd)[id] > 0)
     condition <- condition1 & condition2 & condition3
     return(condition)
   }
@@ -77,8 +77,8 @@ isSellClose.fun <- function(id, type="basic.macd"){
   switch (type, 
           basic.macd = isSellClose.basic.macd(id),
           cow.macd = isSellClose.basic.macd(id),
-          turtle = isSellClose.cow.turtle(id),
-          cow.turtle = isSellClose.cow.turtle(id)
+          turtle = isSellClose.turtle(id),
+          cow.turtle = isSellClose.turtle(id)
   )
 }
 isSellClose.basic.macd <- function(id){
@@ -88,7 +88,7 @@ isSellClose.basic.macd <- function(id){
 	else
 		return(FALSE)
 }
-isSellClose.cow.turtle <- function(id){
+isSellClose.turtle <- function(id){
   wd <- 10
   if (id > wd){
     condition1 <-  (coredata(skt$close)[id-1] >= min(coredata(skt$close)[(id-wd):(id-1)]))
