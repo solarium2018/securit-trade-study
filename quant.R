@@ -11,6 +11,12 @@ skt <- getSymbols(skt.name, src="csv", col.name="Close", auto.assign=FALSE)
 colnames(skt) <- "close"
 print(paste(skt.name, "length:", length(index(skt))))
 
+ma.short = 3
+ma.long =120
+skt.ma.short <- SMA(skt[,"close"], ma.short)
+skt.ma.long <- SMA(skt[,"close"], ma.long)
+print(paste("created ma data, short:", ma.short, ", long:", ma.long ))
+
 skt.macd <- MACD(skt[,"close"], 12,26,9, maType="EMA")   #macd=DIF, signal=DEA.
 print(paste("created macd data, length:", length(index(skt.macd))))
 
@@ -65,7 +71,7 @@ isBuyOpen.cow.turtle <- function(id){
   if (id > wd) {
     condition1 <-  (coredata(skt$close)[id-1] <= max(coredata(skt$close)[(id-wd):(id-1)]))
     condition2 <- (coredata(skt$close)[id] > max(coredata(skt$close)[(id-wd):(id-1)]))
-    condition3 <- (!is.na(coredata(skt.macd$macd)[id])) & (coredata(skt.macd$macd)[id] > 0)
+    condition3 <- (!is.na(coredata(skt.ma.long)[id])) & (coredata(skt.ma.short)[id] > coredata(skt.ma.long)[id])
     condition <- condition1 & condition2 & condition3
     return(condition)
   }
@@ -112,7 +118,7 @@ buyopen.fun <- function(id){
     hold.buy <<- floor(capital/coredata(skt)[id,"close"])
     capital <<- (capital - hold.buy * coredata(skt)[id,"close"])
     
-    td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], 
+    td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], win=0,
                       count=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt)[id,"close"]), stringsAsFactors = FALSE)
     trade.list <<- rbind(trade.list, td)
   }
@@ -123,7 +129,7 @@ sellclose.fun <- function(id) {
 		sellClose.count <<- sellClose.count + 1
 		capital <<- (capital + hold.buy * coredata(skt)[id,"close"])
 		
-		td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], 
+		td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], win=(capital-trade.list$asset[nrow(trade.list)]),
 											count=hold.buy, cash=capital, asset=capital, stringsAsFactors = FALSE )
 		trade.list <<- rbind(trade.list, td)
 
@@ -158,11 +164,12 @@ test_summary <- function() {
   print(paste(index(skt)[id], "total asset:", coredata(asset$asset)[id], 
               "capital:", capital, "hold.buy:", hold.buy))
   roi <- coredata(asset$asset)[id]/initial.cap
-  print(paste("ROI:", 100*(roi-1),
+  print(paste("ROI:", 100*(roi-1), ",stock increase:", 100*(coredata(skt$close)[id]/coredata(skt$close[1])-1),
               "%; CAGR", 100*(roi^(1/floor((as.numeric(index(skt)[id]-index(skt)[1]))/365)) - 1),
               "% from", index(skt)[1], "to", index(skt)[id]))
-  print(paste("largest loss ratio: ", 
-              100 * max( (coredata(asset$peak) - coredata(asset$asset)) / coredata(asset$peak) ), "%"))
+  print(paste("largest loss ratio:", 
+              100 * max( (coredata(asset$peak) - coredata(asset$asset)) / coredata(asset$peak) ), "%",
+              "; win ratio:", 100*nrow(subset(trade.list, win>0))/sellClose.count, "%" )) # or 'trade.list[which(trade.list$win>0),], or trade.list[(trade.list$win>0),]
 }
 
 test_summary()
