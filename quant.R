@@ -5,7 +5,7 @@ library(quantmod)
 
 strategy = "cow.turtle"
 skt.name = "sz50"
-initial.cap = 10000
+initial.cap = 100000
 
 skt <- getSymbols(skt.name, src="csv", col.name="Close", auto.assign=FALSE)
 colnames(skt) <- "close"
@@ -112,7 +112,19 @@ buyOpen.count <- 0
 sellClose.count <- 0
 trade.list <- data.frame()
 
-buyopen.fun <- function(id){
+buyopen.fun <- function(id, fund.mode="full"){
+  switch(fund.mode,
+         full = buyopen.full(id),
+         stepwise = buyopen.stepwise(id)
+  )
+}
+sellclose.fun <- function(id, fund.mode="full"){
+  switch(fund.mode,
+         full = sellclose.full(id),
+         stepwise = sellclose.stepwise(id)
+  )
+}
+buyopen.full <- function(id){
   if (hold.buy == 0){
     buyOpen.count <<- buyOpen.count + 1	
     hold.buy <<- floor(capital/coredata(skt)[id,"close"])
@@ -123,8 +135,7 @@ buyopen.fun <- function(id){
     trade.list <<- rbind(trade.list, td)
   }
 }
-
-sellclose.fun <- function(id) {
+sellclose.full <- function(id) {
 	if (hold.buy > 0) {
 		sellClose.count <<- sellClose.count + 1
 		capital <<- (capital + hold.buy * coredata(skt)[id,"close"])
@@ -135,6 +146,34 @@ sellclose.fun <- function(id) {
 
 		hold.buy <<- 0
 	}
+}
+
+hold.map <- read.csv("fundingmap.csv")
+buyopen.stepwise <- function(id){
+  cur_asset <- asset[id, "asset"]
+  trademode < hold.map[which(hold.map$signal=="BO"),]
+  trade_ratio <- trademode$next_holding - trademode$cur_holding
+  if (hold.buy == 0){
+    buyOpen.count <<- buyOpen.count + 1	
+    hold.buy <<- floor(capital/coredata(skt)[id,"close"])
+    capital <<- (capital - hold.buy * coredata(skt)[id,"close"])
+    
+    td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], win=0,
+                      count=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt)[id,"close"]), stringsAsFactors = FALSE)
+    trade.list <<- rbind(trade.list, td)
+  }
+}
+sellclose.stepwise <- function(id) {
+  if (hold.buy > 0) {
+    sellClose.count <<- sellClose.count + 1
+    capital <<- (capital + hold.buy * coredata(skt)[id,"close"])
+    
+    td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], win=(capital-trade.list$asset[nrow(trade.list)]),
+                      count=hold.buy, cash=capital, asset=capital, stringsAsFactors = FALSE )
+    trade.list <<- rbind(trade.list, td)
+    
+    hold.buy <<- 0
+  }
 }
 
 print(paste(paste(index(skt)[1], "Inital capital:", initial.cap)))
