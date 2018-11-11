@@ -151,8 +151,9 @@ sellclose.full <- function(id) {
 hold.map <- read.csv("fundingmap.csv")
 buyopen.stepwise <- function(id){
   cur_asset <- asset[id, "asset"]
-  trademode < hold.map[which(hold.map$signal=="BO"),]
+  trademode < hold.map[which(hold.map$signal=="BO" & hold.map$cur_holding==0, ),]
   trade_ratio <- trademode$next_holding - trademode$cur_holding
+  
   if (hold.buy == 0){
     buyOpen.count <<- buyOpen.count + 1	
     hold.buy <<- floor(capital/coredata(skt)[id,"close"])
