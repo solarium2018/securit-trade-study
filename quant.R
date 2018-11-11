@@ -50,7 +50,7 @@ isBuyOpen.basic.macd <- function(id){
 		return(FALSE)
 }
 isBuyOpen.cow.macd <- function(id){
-	condition1 <- (coredata(skt.macd$macd)[id] > 0)
+	condition1 <- (!is.na(coredata(skt.ma.long)[id])) & (coredata(skt.ma.short)[id] > coredata(skt.ma.long)[id])
 	condition2 <- cross.fun(coredata(skt.macd$macd), coredata(skt.macd$signal), id)
 	condition <- condition1 & condition2
 	return(condition)
