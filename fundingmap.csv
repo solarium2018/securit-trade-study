@@ -1,7 +1,7 @@
 cur_holding,signal,next_holding
-0,BO,0.5
-0.5,BO,1
-1,BO,1
-0,SC,0
-0.5,SC,0
-1,SC,0.5
+BO,0,0.5
+BO,0.5,1
+BO,1,1
+SC,0,0
+SC,0.5,0
+SC,1,0.5

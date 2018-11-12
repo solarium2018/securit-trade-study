@@ -4,6 +4,7 @@ library(TTR)
 library(quantmod)
 
 strategy = "cow.turtle"
+fundmode = "stepwise"
 skt.name = "sz50"
 initial.cap = 100000
 
@@ -131,7 +132,7 @@ buyopen.full <- function(id){
     capital <<- (capital - hold.buy * coredata(skt)[id,"close"])
     
     td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], win=0,
-                      count=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt)[id,"close"]), stringsAsFactors = FALSE)
+                      holding=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt)[id,"close"]), stringsAsFactors = FALSE)
     trade.list <<- rbind(trade.list, td)
   }
 }
@@ -141,7 +142,7 @@ sellclose.full <- function(id) {
 		capital <<- (capital + hold.buy * coredata(skt)[id,"close"])
 		
 		td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], win=(capital-trade.list$asset[nrow(trade.list)]),
-											count=hold.buy, cash=capital, asset=capital, stringsAsFactors = FALSE )
+											holding=0, cash=capital, asset=capital, stringsAsFactors = FALSE )
 		trade.list <<- rbind(trade.list, td)
 
 		hold.buy <<- 0
@@ -150,30 +151,39 @@ sellclose.full <- function(id) {
 
 hold.map <- read.csv("fundingmap.csv")
 buyopen.stepwise <- function(id){
-  cur_asset <- asset[id, "asset"]
-  trademode < hold.map[which(hold.map$signal=="BO" & hold.map$cur_holding==0, ),]
-  trade_ratio <- trademode$next_holding - trademode$cur_holding
+  cur_asset <- asset[id, "asset"] #asset[id,] has been updated before calling buyopen.fun()
+  trademode <- hold.map[which(hold.map$signal=="BO" 
+                             & hold.map$cur_holding==trade.list$new_holding[nrow(trade.list)]),]
+  tmp <- max( hold.buy, floor(trademode$next_holding * cur_asset / coredata(skt)[id,"close"]) )
   
-  if (hold.buy == 0){
+  if(tmp > hold.buy) {
+    hold.buy <<- tmp
+    capital <<- (cur_asset - hold.buy * coredata(skt)[id,"close"])
     buyOpen.count <<- buyOpen.count + 1	
-    hold.buy <<- floor(capital/coredata(skt)[id,"close"])
-    capital <<- (capital - hold.buy * coredata(skt)[id,"close"])
     
     td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], win=0,
-                      count=hold.buy, cash=capital, asset=(capital + hold.buy * coredata(skt)[id,"close"]), stringsAsFactors = FALSE)
+                      holding=hold.buy, cash=capital, asset=cur_asset, 
+                      new_holding=trademode$next_holding, stringsAsFactors = FALSE)
     trade.list <<- rbind(trade.list, td)
   }
 }
 sellclose.stepwise <- function(id) {
-  if (hold.buy > 0) {
+  cur_asset <- asset[id, "asset"] #asset[id,] has been updated before calling buyopen.fun()
+  trademode <- hold.map[which(hold.map$signal=="SC" 
+                             & hold.map$cur_holding==trade.list$new_holding[nrow(trade.list)]),]
+  tmp <- min( hold.buy, floor(trademode$next_holding * cur_asset / coredata(skt)[id,"close"]) )
+  
+  if (tmp < hold.buy) {
+    hold.buy <<- tmp
+    capital <<- (cur_asset - hold.buy * coredata(skt)[id,"close"])
     sellClose.count <<- sellClose.count + 1
-    capital <<- (capital + hold.buy * coredata(skt)[id,"close"])
     
-    td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], win=(capital-trade.list$asset[nrow(trade.list)]),
-                      count=hold.buy, cash=capital, asset=capital, stringsAsFactors = FALSE )
+    td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], 
+                      win=(cur_asset-trade.list$asset[nrow(trade.list)]),
+                      holding=hold.buy, cash=capital, asset=cur_asset, 
+                      new_holding=trademode$next_holding, stringsAsFactors = FALSE )
     trade.list <<- rbind(trade.list, td)
     
-    hold.buy <<- 0
   }
 }
 
@@ -191,10 +201,10 @@ for (id in (2 : length(index(skt)))) {
     asset[id, "peak"] <- asset[id-1, "peak"]
   
 	if ( isBuyOpen.fun(id, strategy) ) {
-		buyopen.fun(id)
+		buyopen.fun(id, fundmode)
 	}
 	if ( isSellClose.fun(id, strategy) ) {
-		sellclose.fun(id)
+		sellclose.fun(id, fundmode)
 	}
 }
 
