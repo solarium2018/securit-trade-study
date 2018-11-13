@@ -4,7 +4,7 @@ library(TTR)
 library(quantmod)
 
 strategy = "cow.turtle"
-fundmode = "stepwise"
+fundmode = "full"
 skt.name = "sz50"
 initial.cap = 100000
 
@@ -151,10 +151,13 @@ sellclose.full <- function(id) {
 
 hold.map <- read.csv("fundingmap.csv")
 buyopen.stepwise <- function(id){
-  cur_asset <- asset[id, "asset"] #asset[id,] has been updated before calling buyopen.fun()
-  trademode <- hold.map[which(hold.map$signal=="BO" 
-                             & hold.map$cur_holding==trade.list$new_holding[nrow(trade.list)]),]
-  tmp <- max( hold.buy, floor(trademode$next_holding * cur_asset / coredata(skt)[id,"close"]) )
+  cur_asset <- coredata(asset)[id, "asset"] #asset[id,] has been updated before calling buyopen.fun()
+  if (nrow(trade.list)==0)
+    cur_holding <- 0
+  else
+    cur_holding <- trade.list$new_holding[nrow(trade.list)]
+  trade_mode <- hold.map[which(hold.map$signal=="BO" & hold.map$cur_holding==cur_holding),]
+  tmp <- max( hold.buy, floor(trade_mode$next_holding * cur_asset / coredata(skt)[id,"close"]) )
   
   if(tmp > hold.buy) {
     hold.buy <<- tmp
@@ -163,15 +166,19 @@ buyopen.stepwise <- function(id){
     
     td <- data.frame( date=index(skt)[id], op="BO", price=coredata(skt)[id,"close"], win=0,
                       holding=hold.buy, cash=capital, asset=cur_asset, 
-                      new_holding=trademode$next_holding, stringsAsFactors = FALSE)
+                      new_holding=trade_mode$next_holding, stringsAsFactors = FALSE)
     trade.list <<- rbind(trade.list, td)
   }
 }
 sellclose.stepwise <- function(id) {
-  cur_asset <- asset[id, "asset"] #asset[id,] has been updated before calling buyopen.fun()
-  trademode <- hold.map[which(hold.map$signal=="SC" 
-                             & hold.map$cur_holding==trade.list$new_holding[nrow(trade.list)]),]
-  tmp <- min( hold.buy, floor(trademode$next_holding * cur_asset / coredata(skt)[id,"close"]) )
+  cur_asset <- coredata(asset)[id, "asset"] #asset[id,] has been updated before calling buyopen.fun()
+  if (nrow(trade.list)==0)
+    cur_holding <- 0
+  else
+    cur_holding <- trade.list$new_holding[nrow(trade.list)]
+  
+  trade_mode <- hold.map[which(hold.map$signal=="SC" & hold.map$cur_holding==cur_holding),]
+  tmp <- min( hold.buy, floor(trade_mode$next_holding * cur_asset / coredata(skt)[id,"close"]) )
   
   if (tmp < hold.buy) {
     hold.buy <<- tmp
@@ -181,7 +188,7 @@ sellclose.stepwise <- function(id) {
     td <- data.frame( date=index(skt)[id], op="SC", price=coredata(skt)[id,"close"], 
                       win=(cur_asset-trade.list$asset[nrow(trade.list)]),
                       holding=hold.buy, cash=capital, asset=cur_asset, 
-                      new_holding=trademode$next_holding, stringsAsFactors = FALSE )
+                      new_holding=trade_mode$next_holding, stringsAsFactors = FALSE )
     trade.list <<- rbind(trade.list, td)
     
   }
